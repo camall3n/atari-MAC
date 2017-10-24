@@ -96,15 +96,19 @@ class Runner(object):
         self.model = model
         nh, nw, nc = env.observation_space.shape
         nenv = env.num_envs
+        self.nEnvs = nenv
         self.batch_ob_shape = (nenv*nsteps, nh, nw, nc*nstack)
-        self.obs = np.zeros((nenv, nh, nw, nc*nstack), dtype=np.uint8)
         self.nc = nc
-        obs = env.reset()
-        self.update_obs(obs)
         self.gamma = gamma
         self.nsteps = nsteps
-        self.states = model.initial_state
-        self.dones = [False for _ in range(nenv)]
+        def reset():
+            self.obs = np.zeros((nenv, nh, nw, nc*nstack), dtype=np.uint8)
+            obs = env.reset()
+            self.update_obs(obs)
+            self.states = model.initial_state
+            self.dones = [False for _ in range(nenv)]
+        self.reset = reset
+        self.reset()
 
     def update_obs(self, obs):
         # Do frame-stacking here instead of the FrameStack wrapper to reduce
@@ -154,7 +158,61 @@ class Runner(object):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-def learn(policy, env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
+    def eval(self, maxStepsPerEpisode=108e3, nEpisodes=100):
+        total_rewards, total_dones = [],[]
+        total_steps, total_episodes = 0, 0
+
+        # Run for maxStepsPerEpisode steps, or nEpisodes episodes, whichever is shorter
+        while total_steps < maxStepsPerEpisode and total_episodes < nEpisodes:
+            self.reset()
+            ep_rewards, ep_dones = [],[]
+
+            for n in range(self.maxStepsPerEpisode):
+                actions, values, states = self.model.step(self.obs, self.states, self.dones)
+                ep_dones.append(self.dones)
+                obs, rewards, dones, _ = self.env.step(actions)
+                self.states = states
+                self.dones = dones
+                for i, done in enumerate(dones):
+                    if done:
+                        self.obs[i] = self.obs[i]*0 # ignore observation
+                self.update_obs(obs)
+                ep_rewards.append(rewards)
+                if (False not in dones):
+                    break
+            ep_steps = n+1
+            ep_dones.append(self.dones)
+
+            #batch of steps to batch of rollouts
+            ep_rewards = np.asarray(ep_rewards, dtype=np.float32).swapaxes(1, 0)
+            ep_dones = np.asarray(ep_dones, dtype=np.bool).swapaxes(1, 0)
+            ep_dones = ep_dones[:, 1:]
+
+            # compute total scores
+            for n, (rewards, dones) in enumerate(zip(ep_rewards, ep_dones)):
+                rewards = rewards.tolist()
+                dones = dones.tolist()
+                rawscore = discount_with_dones(rewards, dones, gamma=1.0)
+                ep_rewards[n] = rawscore
+                ep_dones[n] = dones[-1]
+
+            total_rewards.append(ep_rewards.flatten())
+            total_dones.append(ep_dones.flatten())
+            total_steps += ep_steps
+            total_episodes += self.nEnvs
+
+        total_rewards = np.asarray(total_rewards, dtype=np.float32)
+        total_dones = np.asarray(total_dones, dtype=np.bool)
+        total_rewards = total_rewards.flatten()
+        total_dones = total_dones.flatten()
+
+        avg_score = np.mean(total_rewards)
+        n_timeouts = np.size(total_dones) - np.sum(total_dones)
+
+        return avg_score
+
+
+def learn(logdir, policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=250e3):
     tf.reset_default_graph()
     set_global_seeds(seed)
 
@@ -165,6 +223,7 @@ def learn(policy, env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_c
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack, num_procs=num_procs, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
     runner = Runner(env, model, nsteps=nsteps, nstack=nstack, gamma=gamma)
+    eval_runner = Runner(eval_env, model, nsteps=1, nstack=nstack, gamma=gamma)
 
     nbatch = nenvs*nsteps
     tstart = time.time()
@@ -182,6 +241,14 @@ def learn(policy, env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_c
             logger.record_tabular("value_loss", float(value_loss))
             logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
+        if update % eval_interval == 0:
+            avg_score = eval_runner.eval()
+            logger.record_tabular("avg_score", avg_score)
+            logger.dump_tabular()
+
+            modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
+            model.save(modelfile)
+
     env.close()
 
 if __name__ == '__main__':

@@ -9,26 +9,27 @@ from baselines.common.atari_wrappers import wrap_deepmind
 from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 
 def train(env_id, num_frames, seed, policy, lrschedule, num_cpu):
-    num_timesteps = int(num_frames / 4 * 1.1) 
+    num_timesteps = int(num_frames / 4 * 1.1)
     # divide by 4 due to frameskip, then do a little extras so episodes end
     def make_env(rank):
         def _thunk():
             env = gym.make(env_id)
             env.seed(seed + rank)
-            env = bench.Monitor(env, logger.get_dir() and 
+            env = bench.Monitor(env, logger.get_dir() and
                 os.path.join(logger.get_dir(), "{}.monitor.json".format(rank)))
             gym.logger.setLevel(logging.WARN)
             return wrap_deepmind(env)
         return _thunk
     set_global_seeds(seed)
     env = SubprocVecEnv([make_env(i) for i in range(num_cpu)])
+    eval_env = SubprocVecEnv([make_env(num_cpu+i) for i in range(num_cpu)]) # eval envs with different seeds
     if policy == 'cnn':
         policy_fn = CnnPolicy
     elif policy == 'lstm':
         policy_fn = LstmPolicy
     elif policy == 'lnlstm':
         policy_fn = LnLstmPolicy
-    learn(policy_fn, env, seed, total_timesteps=num_timesteps, lrschedule=lrschedule)
+    learn(policy_fn, env, eval_env, seed, total_timesteps=num_timesteps, lrschedule=lrschedule)
     env.close()
 
 def main():
@@ -40,8 +41,15 @@ def main():
     parser.add_argument('--lrschedule', help='Learning rate schedule', choices=['constant', 'linear'], default='constant')
     parser.add_argument('--million_frames', help='How many frames to train (/ 1e6). '
         'This number gets divided by 4 due to frameskip', type=int, default=40)
+    parser.add_argument('--logdir', help='Log directory', type=str, default="log")
     args = parser.parse_args()
-    train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed, 
+
+    timestamp = datetime.datetime.now().strftime("-%Y-%m-%d-%H-%M-%S-%f")
+    logdir = os.path.join(args.logdir, args.env, timestamp)
+    logger.reset()
+    logger.make_output_format('log', logdir)
+
+    train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed,
         policy=args.policy, lrschedule=args.lrschedule, num_cpu=16)
 
 if __name__ == '__main__':
