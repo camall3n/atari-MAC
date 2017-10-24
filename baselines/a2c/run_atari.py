@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, logging, gym
+import os, logging, gym, datetime
 from baselines import logger
 from baselines.common import set_global_seeds
 from baselines import bench
@@ -8,7 +8,7 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.atari_wrappers import wrap_deepmind
 from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 
-def train(env_id, num_frames, seed, policy, lrschedule, num_cpu):
+def train(env_id, num_frames, seed, policy, lrschedule, num_cpu, model_path):
     num_timesteps = int(num_frames / 4 * 1.1)
     # divide by 4 due to frameskip, then do a little extras so episodes end
     def make_env(rank):
@@ -29,7 +29,7 @@ def train(env_id, num_frames, seed, policy, lrschedule, num_cpu):
         policy_fn = LstmPolicy
     elif policy == 'lnlstm':
         policy_fn = LnLstmPolicy
-    learn(policy_fn, env, eval_env, seed, total_timesteps=num_timesteps, lrschedule=lrschedule)
+    learn(policy_fn, env, eval_env, seed, total_timesteps=num_timesteps, lrschedule=lrschedule, model_path=model_path)
     env.close()
 
 def main():
@@ -42,15 +42,16 @@ def main():
     parser.add_argument('--million_frames', help='How many frames to train (/ 1e6). '
         'This number gets divided by 4 due to frameskip', type=int, default=40)
     parser.add_argument('--logdir', help='Log directory', type=str, default="log")
+    parser.add_argument('--model_path', help='Path to pre-trained model', type=str, default="")
     args = parser.parse_args()
 
-    timestamp = datetime.datetime.now().strftime("-%Y-%m-%d-%H-%M-%S-%f")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
     logdir = os.path.join(args.logdir, args.env, timestamp)
     logger.reset()
-    logger.make_output_format('log', logdir)
+    logger.configure(logdir)
 
     train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed,
-        policy=args.policy, lrschedule=args.lrschedule, num_cpu=16)
+        policy=args.policy, lrschedule=args.lrschedule, num_cpu=16, model_path=args.model_path)
 
 if __name__ == '__main__':
     main()

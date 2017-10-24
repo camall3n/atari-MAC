@@ -1,4 +1,5 @@
 import os.path as osp
+import os, datetime
 import gym
 import time
 import joblib
@@ -69,8 +70,8 @@ class Model(object):
 
         def save(save_path):
             ps = sess.run(params)
-            make_path(save_path)
             joblib.dump(ps, save_path)
+            logger.log('Model saved to %s'%save_path)
 
         def load(load_path):
             loaded_params = joblib.load(load_path)
@@ -78,6 +79,7 @@ class Model(object):
             for p, loaded_p in zip(params, loaded_params):
                 restores.append(p.assign(loaded_p))
             ps = sess.run(restores)
+            logger.log('Model loaded from %s'%load_path)
 
         self.train = train
         self.train_model = train_model
@@ -158,7 +160,7 @@ class Runner(object):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-    def eval(self, maxStepsPerEpisode=108e3, nEpisodes=100):
+    def eval(self, maxStepsPerEpisode=1e3, nEpisodes=10):
         total_rewards, total_dones = [],[]
         total_steps, total_episodes = 0, 0
 
@@ -167,7 +169,7 @@ class Runner(object):
             self.reset()
             ep_rewards, ep_dones = [],[]
 
-            for n in range(self.maxStepsPerEpisode):
+            for n in range(int(maxStepsPerEpisode)):
                 actions, values, states = self.model.step(self.obs, self.states, self.dones)
                 ep_dones.append(self.dones)
                 obs, rewards, dones, _ = self.env.step(actions)
@@ -209,10 +211,14 @@ class Runner(object):
         avg_score = np.mean(total_rewards)
         n_timeouts = np.size(total_dones) - np.sum(total_dones)
 
-        return avg_score
+        logger.log("Evaluation complete:")
+        logger.record_tabular("total_steps", total_steps)
+        logger.record_tabular("total_episodes", total_episodes)
+        logger.record_tabular("avg_score", avg_score)
+        logger.record_tabular("n_timeouts", n_timeouts)
+        logger.dump_tabular()
 
-
-def learn(logdir, policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=250e3):
+def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=250e3, model_path=""):
     tf.reset_default_graph()
     set_global_seeds(seed)
 
@@ -222,6 +228,8 @@ def learn(logdir, policy, env, eval_env, seed, nsteps=5, nstack=4, total_timeste
     num_procs = len(env.remotes) # HACK
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack, num_procs=num_procs, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
+    if model_path:
+        model.load(model_path)
     runner = Runner(env, model, nsteps=nsteps, nstack=nstack, gamma=gamma)
     eval_runner = Runner(eval_env, model, nsteps=1, nstack=nstack, gamma=gamma)
 
@@ -241,11 +249,8 @@ def learn(logdir, policy, env, eval_env, seed, nsteps=5, nstack=4, total_timeste
             logger.record_tabular("value_loss", float(value_loss))
             logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
-        if update % eval_interval == 0:
-            avg_score = eval_runner.eval()
-            logger.record_tabular("avg_score", avg_score)
-            logger.dump_tabular()
-
+        if update % eval_interval == 0 or update == 1:
+            eval_runner.eval()
             modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
             model.save(modelfile)
 
