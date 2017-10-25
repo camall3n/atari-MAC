@@ -11,18 +11,18 @@ from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 def train(env_id, num_frames, seed, policy, lrschedule, num_cpu, model_path):
     num_timesteps = int(num_frames / 4 * 1.1)
     # divide by 4 due to frameskip, then do a little extras so episodes end
-    def make_env(rank):
+    def make_env(rank, isTraining=True):
         def _thunk():
             env = gym.make(env_id)
             env.seed(seed + rank)
             env = bench.Monitor(env, logger.get_dir() and
-                os.path.join(logger.get_dir(), "{}.monitor.json".format(rank)))
+                os.path.join(logger.get_dir(), "{}.monitor.json".format(rank)), allow_early_resets=(not isTraining))
             gym.logger.setLevel(logging.WARN)
-            return wrap_deepmind(env)
+            return wrap_deepmind(env, episode_life=isTraining, clip_rewards=isTraining)
         return _thunk
     set_global_seeds(seed)
-    env = SubprocVecEnv([make_env(i) for i in range(num_cpu)])
-    eval_env = SubprocVecEnv([make_env(num_cpu+i) for i in range(num_cpu)]) # eval envs with different seeds
+    env = SubprocVecEnv([make_env(i, isTraining=True) for i in range(num_cpu)])
+    eval_env = SubprocVecEnv([make_env(num_cpu+i, isTraining=False) for i in range(num_cpu)])
     if policy == 'cnn':
         policy_fn = CnnPolicy
     elif policy == 'lstm':

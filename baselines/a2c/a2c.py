@@ -1,5 +1,5 @@
 import os.path as osp
-import os, datetime
+import os, datetime, sys
 import gym
 import time
 import joblib
@@ -160,18 +160,18 @@ class Runner(object):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-    def eval(self, maxStepsPerEpisode=1e3, nEpisodes=10):
+    def eval(self, maxStepsPerEpisode=200, nEpisodes=16):
         total_rewards, total_dones = [],[]
         total_steps, total_episodes = 0, 0
 
         # Run for maxStepsPerEpisode steps, or nEpisodes episodes, whichever is shorter
         while total_steps < maxStepsPerEpisode and total_episodes < nEpisodes:
             self.reset()
-            ep_rewards, ep_dones = [],[]
+            step_rewards, step_dones = [],[]
 
             for n in range(int(maxStepsPerEpisode)):
                 actions, values, states = self.model.step(self.obs, self.states, self.dones)
-                ep_dones.append(self.dones)
+                step_dones.append(self.dones)
                 obs, rewards, dones, _ = self.env.step(actions)
                 self.states = states
                 self.dones = dones
@@ -179,27 +179,28 @@ class Runner(object):
                     if done:
                         self.obs[i] = self.obs[i]*0 # ignore observation
                 self.update_obs(obs)
-                ep_rewards.append(rewards)
+                step_rewards.append(rewards)
                 if (False not in dones):
                     break
             ep_steps = n+1
-            ep_dones.append(self.dones)
+            step_dones.append(self.dones)
 
             #batch of steps to batch of rollouts
-            ep_rewards = np.asarray(ep_rewards, dtype=np.float32).swapaxes(1, 0)
-            ep_dones = np.asarray(ep_dones, dtype=np.bool).swapaxes(1, 0)
-            ep_dones = ep_dones[:, 1:]
+            env_rewards = np.asarray(step_rewards, dtype=np.float32).swapaxes(1, 0)
+            env_dones = np.asarray(step_dones, dtype=np.bool).swapaxes(1, 0)
+            env_dones = env_dones[:, 1:]
 
+            ep_dones, ep_rewards = [], []
             # compute total scores
-            for n, (rewards, dones) in enumerate(zip(ep_rewards, ep_dones)):
+            for n, (rewards, dones) in enumerate(zip(env_rewards, env_dones)):
                 rewards = rewards.tolist()
                 dones = dones.tolist()
-                rawscore = discount_with_dones(rewards, dones, gamma=1.0)
-                ep_rewards[n] = rawscore
-                ep_dones[n] = dones[-1]
+                rawscore = discount_with_dones(rewards, dones, gamma=1.0)[0]
+                ep_rewards.append(rawscore)
+                ep_dones.append(dones[-1])
 
-            total_rewards.append(ep_rewards.flatten())
-            total_dones.append(ep_dones.flatten())
+            total_rewards.append(ep_rewards)
+            total_dones.append(ep_dones)
             total_steps += ep_steps
             total_episodes += self.nEnvs
 
