@@ -160,7 +160,7 @@ class Runner(object):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-    def eval(self, maxStepsPerEpisode=200, nEpisodes=16):
+    def eval(self, maxStepsPerEpisode=400, nEpisodes=16):
         total_rewards, total_dones = [],[]
         total_steps, total_episodes = 0, 0
 
@@ -196,8 +196,9 @@ class Runner(object):
                 rewards = rewards.tolist()
                 dones = dones.tolist()
                 rawscore = discount_with_dones(rewards, dones, gamma=1.0)[0]
+                done = (True in dones)
                 ep_rewards.append(rawscore)
-                ep_dones.append(dones[-1])
+                ep_dones.append(done)
 
             total_rewards.append(ep_rewards)
             total_dones.append(ep_dones)
