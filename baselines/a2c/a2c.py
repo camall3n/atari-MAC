@@ -222,7 +222,7 @@ class Runner(object):
         logger.record_tabular("n_timeouts", n_timeouts)
         logger.dump_tabular()
 
-def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=250e3, model_path=""):
+def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=50e3, model_path=""):
     tf.reset_default_graph()
     set_global_seeds(seed)
 
@@ -257,7 +257,9 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
             eval_runner.eval()
             modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
             model.save(modelfile)
-
+    eval_runner.eval()
+    modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
+    model.save(modelfile)
     env.close()
 
 if __name__ == '__main__':
