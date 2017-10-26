@@ -43,6 +43,7 @@ def main():
         'This number gets divided by 4 due to frameskip', type=int, default=40)
     parser.add_argument('--logdir', help='Log directory', type=str, default="log")
     parser.add_argument('--model_path', help='Path to pre-trained model', type=str, default="")
+    parser.add_argument('--num_cpus', help='Number of CPUs (i.e. number of parallel enviornments)', type=int, default=16)
     args = parser.parse_args()
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
@@ -51,7 +52,7 @@ def main():
     logger.configure(logdir)
 
     train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed,
-        policy=args.policy, lrschedule=args.lrschedule, num_cpu=16, model_path=args.model_path)
+        policy=args.policy, lrschedule=args.lrschedule, num_cpu=args.num_cpus, model_path=args.model_path)
 
 if __name__ == '__main__':
     main()
