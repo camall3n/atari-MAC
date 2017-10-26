@@ -30,6 +30,7 @@ def train(env_id, num_frames, seed, policy, lrschedule, num_cpu, model_path):
     elif policy == 'lnlstm':
         policy_fn = LnLstmPolicy
     learn(policy_fn, env, eval_env, seed, total_timesteps=num_timesteps, lrschedule=lrschedule, model_path=model_path)
+    eval_env.close()
     env.close()
 
 def main():

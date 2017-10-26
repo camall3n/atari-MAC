@@ -260,7 +260,6 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
     eval_runner.eval()
     modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
     model.save(modelfile)
-    env.close()
 
 if __name__ == '__main__':
     main()
