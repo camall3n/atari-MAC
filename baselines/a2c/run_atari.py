@@ -51,7 +51,10 @@ def main():
     logdir = os.path.join(args.logdir, args.env, timestamp)
     logger.reset()
     logger.configure(logdir)
-
+    logger.log("")
+    for arg in vars(args):
+        logger.log("{}: {}".format(arg, getattr(args,arg)))
+    logger.log("")
     train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed,
         policy=args.policy, lrschedule=args.lrschedule, num_cpu=args.num_cpus, model_path=args.model_path)
 
