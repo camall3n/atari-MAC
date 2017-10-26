@@ -216,10 +216,10 @@ class Runner(object):
         n_timeouts = np.size(total_dones) - np.sum(total_dones)
 
         logger.log("Evaluation complete:")
-        logger.record_tabular("total_steps", total_steps)
-        logger.record_tabular("total_episodes", total_episodes)
-        logger.record_tabular("avg_score", avg_score)
-        logger.record_tabular("n_timeouts", n_timeouts)
+        logger.record_tabular("eval_avg_score", avg_score)
+        logger.record_tabular("eval_steps", total_steps*self.nEnvs)
+        logger.record_tabular("eval_episodes", total_episodes)
+        logger.record_tabular("eval_n_timeouts", n_timeouts)
         logger.dump_tabular()
 
 def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=50e3, model_path=""):
@@ -254,9 +254,13 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
             logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
         if update % eval_interval == 0 or update == 1:
+            logger.record_tabular("nupdates", update)
+            logger.record_tabular("total_timesteps", update*nbatch)
             eval_runner.eval()
             modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
             model.save(modelfile)
+    logger.record_tabular("nupdates", update)
+    logger.record_tabular("total_timesteps", update*nbatch)
     eval_runner.eval()
     modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
     model.save(modelfile)
