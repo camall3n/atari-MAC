@@ -160,7 +160,7 @@ class Runner(object):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-    def eval(self, maxStepsPerEpisode=400, nEpisodes=16):
+    def eval(self, maxStepsPerEpisode=4500, nEpisodes=50):
         total_rewards, total_dones = [],[]
         total_steps, total_episodes = 0, 0
 
@@ -168,6 +168,7 @@ class Runner(object):
         while total_steps < maxStepsPerEpisode and total_episodes < nEpisodes:
             self.reset()
             step_rewards, step_dones = [],[]
+            ep_dones = np.asarray(self.dones, dtype=np.bool)
 
             for n in range(int(maxStepsPerEpisode)):
                 actions, values, states = self.model.step(self.obs, self.states, self.dones)
@@ -180,7 +181,8 @@ class Runner(object):
                         self.obs[i] = self.obs[i]*0 # ignore observation
                 self.update_obs(obs)
                 step_rewards.append(rewards)
-                if (False not in dones):
+                ep_dones = np.logical_or(ep_dones, np.asarray(dones, dtype=np.bool))
+                if np.all(ep_dones):
                     break
             ep_steps = n+1
             step_dones.append(self.dones)
