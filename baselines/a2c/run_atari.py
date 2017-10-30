@@ -41,7 +41,7 @@ def main():
     parser.add_argument('--policy', help='Policy architecture', choices=['cnn', 'lstm', 'lnlstm'], default='cnn')
     parser.add_argument('--lrschedule', help='Learning rate schedule', choices=['constant', 'linear'], default='constant')
     parser.add_argument('--million_frames', help='How many frames to train (/ 1e6). '
-        'This number gets divided by 4 due to frameskip', type=int, default=40)
+        'This number gets divided by 4 due to frameskip', type=int, default=200)
     parser.add_argument('--logdir', help='Log directory', type=str, default="log")
     parser.add_argument('--model_path', help='Path to pre-trained model', type=str, default="")
     parser.add_argument('--num_cpus', help='Number of CPUs (i.e. number of parallel enviornments)', type=int, default=16)
