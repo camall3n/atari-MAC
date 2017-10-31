@@ -11,6 +11,7 @@ defaultjob = 'a2c_[TIMESTRING]'
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--jobname', help='A name for the qsub job (max 10 chars)', type=str, default=defaultjob)
+parser.add_argument('--jobtype', help='Which type of job to request', choices=['cpu', 'gpu'], default='gpu')
 required = parser.add_argument_group('required arguments')
 required.add_argument('--note', help='A short note to add to the log file', type=str)
 args = parser.parse_args()
@@ -25,20 +26,37 @@ elif not re.match(r'^\w+$', args.jobname):
 	print("Invalid job name: {}".format(args.jobname))
 	sys.exit()
 
-script_body='''#!/bin/sh
-#
+gpu_request='''#
 #  Request 1 GPU
 #$ -l gpus=1
 #
 #  Request 8 CPU cores
 #$ -pe smp 8
 #
+'''
+
+cpu_request='''#
+#  Request very long job
+#$ -l vlong
+#
+#  Request 8 CPU cores
+#$ -pe smp 8
+#
+'''
+
+if args.jobtype == 'cpu':
+	job_details = cpu_request
+else:
+	job_details = gpu_request
+
+script_body='''#!/bin/sh
+{}
 
 cd ~
 source tf-py3-gpu-env.sh
 cd ~/dev/mean-a2c
 ./run-atari --note="{}" --num_cpus=8
-'''.format(args.note)
+'''.format(job_details, args.note)
 
 os.makedirs("scripts/", exist_ok=True)
 
