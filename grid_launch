@@ -4,6 +4,7 @@ import argparse
 import datetime
 import os
 import sys
+import re
 
 timestr = datetime.datetime.now().strftime("%f")
 defaultjob = 'a2c_[TIMESTRING]'
@@ -20,7 +21,7 @@ if args.note == None:
 
 if args.jobname == defaultjob:
 	args.jobname = "a2c_{}".format(timestr)
-elif not args.jobname.isalnum():
+elif not re.match(r'^\w+$', args.jobname):
 	print("Invalid job name: {}".format(args.jobname))
 	sys.exit()
 
