@@ -102,7 +102,8 @@ class CnnPolicy(object):
             h3 = conv(h2, 'c3', nf=64, rf=3, stride=1, init_scale=np.sqrt(2))
             h3 = conv_to_fc(h3)
             h4 = fc(h3, 'fc1', nh=512, init_scale=np.sqrt(2))
-            pi = fc(h4, 'pi', nact, act=lambda x:x)
+            pi_logits = fc(h4, 'pi', nact, act=lambda x:x)
+            pi = tf.nn.softmax(pi_logits)
             vf = fc(h4, 'v', 1, act=lambda x:x)
 
         v0 = vf[:, 0]
@@ -117,6 +118,7 @@ class CnnPolicy(object):
             return sess.run(v0, {X:ob})
 
         self.X = X
+        self.pi_logits = pi_logits
         self.pi = pi
         self.vf = vf
         self.step = step
