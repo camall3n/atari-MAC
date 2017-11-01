@@ -53,10 +53,10 @@ script_body='''#!/bin/sh
 {}
 
 cd ~
-source tf-py3-gpu-env.sh
+source tf-py3-{}-env.sh
 cd ~/dev/mean-a2c
 ./run-atari --note="{}" --num_cpus=8
-'''.format(job_details, args.note)
+'''.format(job_details, args.jobtype, args.note)
 
 os.makedirs("scripts/", exist_ok=True)
 
