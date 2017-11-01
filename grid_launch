@@ -26,37 +26,22 @@ elif not re.match(r'^\w+$', args.jobname):
 	print("Invalid job name: {}".format(args.jobname))
 	sys.exit()
 
-gpu_request='''#
-#  Request 1 GPU
-#$ -l gpus=1
-#
-#  Request 8 CPU cores
-#$ -pe smp 8
-#
-'''
-
-cpu_request='''#
-#  Request very long job
-#$ -l vlong
-#
-#  Request 8 CPU cores
-#$ -pe smp 8
-#
-'''
+gpu_request='-q compsci-gpu'
+cpu_request='-q compsci -pe threaded 8'
 
 if args.jobtype == 'cpu':
 	job_details = cpu_request
 else:
 	job_details = gpu_request
 
-script_body='''#!/bin/sh
-{}
+script_body='''#$ -S /bin/bash
+#!/bin/bash
 
 cd ~
 source tf-py3-{}-env.sh
 cd ~/dev/mean-a2c
-./run-atari --note="{}" --num_cpus=8
-'''.format(job_details, args.jobtype, args.note)
+./run_atari --note="{}" --num_cpus=8
+'''.format(args.jobtype, args.note)
 
 os.makedirs("scripts/", exist_ok=True)
 
@@ -65,6 +50,6 @@ jobfile = "scripts/{}".format(args.jobname)
 with open(jobfile, 'w') as f:
 	f.write(script_body)
 
-cmd="qsub {}".format(jobfile)
+cmd="qsub {} {}".format(job_details, jobfile)
 print(cmd)
 os.system(cmd)
