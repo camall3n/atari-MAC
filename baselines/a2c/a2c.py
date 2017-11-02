@@ -38,9 +38,11 @@ class Model(object):
         step_model = policy(sess, ob_space, ac_space, nenvs, 1, nstack, reuse=False)
         train_model = policy(sess, ob_space, ac_space, nenvs, nsteps, nstack, reuse=True)
 
+        selected_idx = tf.stack([tf.range(0,tf.cast(A.get_shape()[0],dtype=tf.int32), dtype=tf.int32), A], axis=1)
+        q_acted = tf.gather_nd(train_model.q, selected_idx)
+
         neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi_logits, labels=A)
         pg_loss = tf.reduce_mean(ADV * neglogpac)
-        q_acted = tf.gather(train_model.q, A, axis=1)
         vf_loss = tf.reduce_mean(mse(q_acted, R))
         entropy = tf.reduce_mean(cat_entropy(train_model.pi_logits))
         loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
