@@ -108,11 +108,12 @@ class CnnPolicy(object):
             v  = tf.reduce_sum(pi*q, axis=1)
 
         a0 = sample(pi_logits)
+        q_act = tf.gather(q, a0, axis=1)
         self.initial_state = [] #not stateful
 
         def step(ob, *_args, **_kwargs):
-            a, vals = sess.run([a0, v], {X:ob})
-            return a, vals, [] #dummy state
+            a, val, qval = sess.run([a0, v, q_act], {X:ob})
+            return a, val, qval, [] #dummy state
 
         def value(ob, *_args, **_kwargs):
             return sess.run(v, {X:ob})

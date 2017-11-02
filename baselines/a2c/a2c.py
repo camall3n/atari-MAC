@@ -55,7 +55,7 @@ class Model(object):
 
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
 
-        def train(obs, states, rewards, masks, actions, values):
+        def train(obs, states, rewards, masks, actions, values, qvalues):
             advs = rewards - values
             for step in range(len(obs)):
                 cur_lr = lr.value()
@@ -120,12 +120,13 @@ class Runner(object):
         self.obs[:, :, :, -self.nc:] = obs
 
     def run(self):
-        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
+        mb_obs, mb_rewards, mb_actions, mb_values, mb_qvalues, mb_dones = [],[],[],[],[],[]
         mb_states = self.states
         for n in range(self.nsteps):
-            actions, values, states = self.model.step(self.obs, self.states, self.dones)
+            actions, values, qvalues, states = self.model.step(self.obs, self.states, self.dones)
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
+            mb_qvalues.append(qvalues)
             mb_values.append(values)
             mb_dones.append(self.dones)
             obs, rewards, dones, _ = self.env.step(actions)
@@ -141,6 +142,7 @@ class Runner(object):
         mb_obs = np.asarray(mb_obs, dtype=np.uint8).swapaxes(1, 0).reshape(self.batch_ob_shape)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_actions = np.asarray(mb_actions, dtype=np.int32).swapaxes(1, 0)
+        mb_qvalues = np.asarray(mb_qvalues, dtype=np.float32).swapaxes(1, 0)
         mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
         mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
         mb_masks = mb_dones[:, :-1]
@@ -157,9 +159,10 @@ class Runner(object):
             mb_rewards[n] = rewards
         mb_rewards = mb_rewards.flatten()
         mb_actions = mb_actions.flatten()
+        mb_qvalues = mb_qvalues.flatten()
         mb_values = mb_values.flatten()
         mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
+        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, mb_qvalues
 
     def eval(self, maxStepsPerEpisode=4500, nEpisodes=50):
         total_rewards, total_dones = [],[]
@@ -172,7 +175,7 @@ class Runner(object):
             ep_dones = np.asarray(self.dones, dtype=np.bool)
 
             for n in range(int(maxStepsPerEpisode)):
-                actions, values, states = self.model.step(self.obs, self.states, self.dones)
+                actions, _, _ states = self.model.step(self.obs, self.states, self.dones)
                 step_dones.append(self.dones)
                 obs, rewards, dones, _ = self.env.step(actions)
                 self.states = states
@@ -243,12 +246,12 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
     nbatch = nenvs*nsteps
     tstart = time.time()
     for update in range(1, total_timesteps//nbatch+1):
-        obs, states, rewards, masks, actions, values = runner.run()
-        policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
+        obs, states, rewards, masks, actions, values, qvalues = runner.run()
+        policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values, qvalues)
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
         if update % log_interval == 0 or update == 1:
-            ev = explained_variance(values, rewards)
+            ev = explained_variance(qvalues, rewards)
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update*nbatch)
             logger.record_tabular("fps", fps)
