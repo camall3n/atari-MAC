@@ -104,6 +104,7 @@ class CnnPolicy(object):
             h4 = fc(h3, 'fc1', nh=512, init_scale=np.sqrt(2))
             pi_logits = fc(h4, 'pi', nact, act=lambda x:x)
             pi = tf.nn.softmax(pi_logits)
+            q  = fc(h4, 'q', nact, act=lambda x:x)
             vf = fc(h4, 'v', 1, act=lambda x:x)
 
         v0 = vf[:, 0]
