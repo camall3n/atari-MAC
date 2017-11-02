@@ -40,7 +40,8 @@ class Model(object):
 
         neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi_logits, labels=A)
         pg_loss = tf.reduce_mean(ADV * neglogpac)
-        vf_loss = tf.reduce_mean(mse(tf.squeeze(train_model.vf), R))
+        q_acted = tf.gather(train_model.q, A, axis=1)
+        vf_loss = tf.reduce_mean(mse(q_acted, R))
         entropy = tf.reduce_mean(cat_entropy(train_model.pi_logits))
         loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
 
