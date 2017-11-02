@@ -105,22 +105,22 @@ class CnnPolicy(object):
             pi_logits = fc(h4, 'pi', nact, act=lambda x:x)
             pi = tf.nn.softmax(pi_logits)
             q  = fc(h4, 'q', nact, act=lambda x:x)
-            vf = fc(h4, 'v', 1, act=lambda x:x)
+            v  = tf.reduce_sum(pi*q, axis=1)
 
-        v0 = vf[:, 0]
         a0 = sample(pi)
         self.initial_state = [] #not stateful
 
         def step(ob, *_args, **_kwargs):
-            a, v = sess.run([a0, v0], {X:ob})
+            a, v = sess.run([a0, v], {X:ob})
             return a, v, [] #dummy state
 
         def value(ob, *_args, **_kwargs):
-            return sess.run(v0, {X:ob})
+            return sess.run(v, {X:ob})
 
         self.X = X
         self.pi_logits = pi_logits
         self.pi = pi
-        self.vf = vf
+        self.q = q
+        self.v = v
         self.step = step
         self.value = value
