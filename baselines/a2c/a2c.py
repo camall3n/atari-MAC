@@ -124,6 +124,8 @@ class Runner(object):
         mb_states = self.states
         for n in range(self.nsteps):
             actions, values, qvalues, states = self.model.step(self.obs, self.states, self.dones)
+            # save only the acted Q-values
+            qvalues = qvalues[np.arange(len(qvalues)), actions]
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
             mb_qvalues.append(qvalues)
@@ -175,7 +177,7 @@ class Runner(object):
             ep_dones = np.asarray(self.dones, dtype=np.bool)
 
             for n in range(int(maxStepsPerEpisode)):
-                actions, _, _ states = self.model.step(self.obs, self.states, self.dones)
+                actions, _, _, states = self.model.step(self.obs, self.states, self.dones)
                 step_dones.append(self.dones)
                 obs, rewards, dones, _ = self.env.step(actions)
                 self.states = states
