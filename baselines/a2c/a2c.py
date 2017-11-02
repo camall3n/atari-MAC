@@ -56,7 +56,7 @@ class Model(object):
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
 
         def train(obs, states, rewards, masks, actions, values, qvalues):
-            advs = rewards - values
+            advs = qvalues - values
             for step in range(len(obs)):
                 cur_lr = lr.value()
             td_map = {train_model.X:obs, A:actions, ADV:advs, R:rewards, LR:cur_lr}
