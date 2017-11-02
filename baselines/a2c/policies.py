@@ -107,7 +107,7 @@ class CnnPolicy(object):
             q  = fc(h4, 'q', nact, act=lambda x:x)
             v  = tf.reduce_sum(pi*q, axis=1)
 
-        a0 = sample(pi)
+        a0 = sample(pi_logits)
         self.initial_state = [] #not stateful
 
         def step(ob, *_args, **_kwargs):
