@@ -1,6 +1,7 @@
 import os.path as osp
 import os, datetime, sys
 import gym
+import fnmatch
 import time
 import joblib
 import logging
@@ -21,7 +22,7 @@ class Model(object):
 
     def __init__(self, policy, ob_space, ac_space, nenvs, nsteps, nstack, num_procs,
             ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5, lr=7e-4,
-            alpha=0.99, epsilon=1e-5, total_timesteps=int(80e6), lrschedule='linear'):
+            alpha=0.99, epsilon=1e-5, total_timesteps=int(80e6), lrschedule='linear', nModelsToKeep=5):
         config = tf.ConfigProto(allow_soft_placement=True,
                                 intra_op_parallelism_threads=num_procs,
                                 inter_op_parallelism_threads=num_procs)
@@ -71,10 +72,17 @@ class Model(object):
             )
             return policy_loss, value_loss, policy_entropy
 
-        def save(save_path):
+        def save():
+            modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
+
             ps = sess.run(params)
-            joblib.dump(ps, save_path)
-            logger.log('Model saved to %s'%save_path)
+            joblib.dump(ps, modelfile)
+            logger.log('Model saved to %s'%modelfile)
+
+            model_files = sorted(fnmatch.filter(os.listdir(logger.get_dir()), "model-*"))
+            if len(model_files) > nModelsToKeep:
+                for old_file in model_files[0:-nModelsToKeep]:
+                    os.remove(os.path.join(logger.get_dir(), old_file))
 
         def load(load_path):
             loaded_params = joblib.load(load_path)
@@ -227,7 +235,7 @@ class Runner(object):
 
 def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6),
     vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear',
-    epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=5000, model_path=""):
+    epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=12500, model_path=""):
     tf.reset_default_graph()
     set_global_seeds(seed)
 
@@ -262,8 +270,8 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update*nbatch)
             eval_runner.eval()
-            modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
-            model.save(modelfile)
+            model.save()
+
     logger.record_tabular("nupdates", update)
     logger.record_tabular("total_timesteps", update*nbatch)
     eval_runner.eval()
