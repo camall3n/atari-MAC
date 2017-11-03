@@ -32,7 +32,7 @@ class Model(object):
         nbatch = nenvs*nsteps
 
         A = tf.placeholder(tf.int32, [nbatch])
-        ADV = tf.placeholder(tf.float32, [nbatch])
+        Q = tf.placeholder(tf.float32, [nbatch, nact])
         R = tf.placeholder(tf.float32, [nbatch])
         LR = tf.placeholder(tf.float32, [])
 
@@ -42,8 +42,7 @@ class Model(object):
         selected_idx = tf.stack([tf.range(0,tf.cast(A.get_shape()[0],dtype=tf.int32), dtype=tf.int32), A], axis=1)
         q_acted = tf.gather_nd(train_model.q, selected_idx)
 
-        neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi_logits, labels=A)
-        pg_loss = tf.reduce_mean(ADV * neglogpac)
+        pg_loss = tf.reduce_mean(-tf.reduce_sum(train_model.pi * Q, axis=1))
         vf_loss = tf.reduce_mean(mse(q_acted, R))
         entropy = tf.reduce_mean(cat_entropy(train_model.pi_logits))
         loss = pg_loss*pg_coef - entropy*ent_coef + vf_loss * vf_coef
@@ -58,11 +57,10 @@ class Model(object):
 
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
 
-        def train(obs, states, rewards, masks, actions, values, qvalues):
-            advs = qvalues - values
+        def train(obs, states, rewards, masks, actions, qvalues):
             for step in range(len(obs)):
                 cur_lr = lr.value()
-            td_map = {train_model.X:obs, A:actions, ADV:advs, R:rewards, LR:cur_lr}
+            td_map = {train_model.X:obs, A:actions, Q:qvalues, R:rewards, LR:cur_lr}
             if states != []:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
@@ -92,6 +90,7 @@ class Model(object):
             ps = sess.run(restores)
             logger.log('Model loaded from %s'%load_path)
 
+        self.nact = nact
         self.train = train
         self.train_model = train_model
         self.step_model = step_model
@@ -130,16 +129,13 @@ class Runner(object):
         self.obs[:, :, :, -self.nc:] = obs
 
     def run(self):
-        mb_obs, mb_rewards, mb_actions, mb_values, mb_qvalues, mb_dones = [],[],[],[],[],[]
+        mb_obs, mb_rewards, mb_actions, mb_qvalues, mb_dones = [],[],[],[],[]
         mb_states = self.states
         for n in range(self.nsteps):
-            actions, values, qvalues, states = self.model.step(self.obs, self.states, self.dones)
-            # save only the acted Q-values
-            qvalues = qvalues[np.arange(len(qvalues)), actions]
+            actions, qvalues, states = self.model.step(self.obs, self.states, self.dones)
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
             mb_qvalues.append(qvalues)
-            mb_values.append(values)
             mb_dones.append(self.dones)
             obs, rewards, dones, _ = self.env.step(actions)
             self.states = states
@@ -155,7 +151,6 @@ class Runner(object):
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_actions = np.asarray(mb_actions, dtype=np.int32).swapaxes(1, 0)
         mb_qvalues = np.asarray(mb_qvalues, dtype=np.float32).swapaxes(1, 0)
-        mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
         mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
         mb_masks = mb_dones[:, :-1]
         mb_dones = mb_dones[:, 1:]
@@ -171,10 +166,9 @@ class Runner(object):
             mb_rewards[n] = rewards
         mb_rewards = mb_rewards.flatten()
         mb_actions = mb_actions.flatten()
-        mb_qvalues = mb_qvalues.flatten()
-        mb_values = mb_values.flatten()
+        mb_qvalues = np.reshape(mb_qvalues,[-1,self.model.nact])
         mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values, mb_qvalues
+        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_qvalues
 
     def eval(self, maxStepsPerEpisode=4500, nEpisodes=50):
         total_rewards, total_dones = [],[]
@@ -187,7 +181,7 @@ class Runner(object):
             ep_dones = np.asarray(self.dones, dtype=np.bool)
 
             for n in range(int(maxStepsPerEpisode)):
-                actions, _, _, states = self.model.step(self.obs, self.states, self.dones)
+                actions, _, states = self.model.step(self.obs, self.states, self.dones)
                 step_dones.append(self.dones)
                 obs, rewards, dones, _ = self.env.step(actions)
                 self.states = states
@@ -258,12 +252,13 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
     nbatch = nenvs*nsteps
     tstart = time.time()
     for update in range(1, total_timesteps//nbatch+1):
-        obs, states, rewards, masks, actions, values, qvalues = runner.run()
-        policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values, qvalues)
+        obs, states, rewards, masks, actions, qvalues = runner.run()
+        policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, qvalues)
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
         if update % log_interval == 0 or update == 1:
-            ev = explained_variance(qvalues, rewards)
+            q_acted = np.asarray([np.take(q,a) for (q,a) in zip(qvalues, actions)])
+            ev = explained_variance(q_acted, rewards)
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update*nbatch)
             logger.record_tabular("fps", fps)

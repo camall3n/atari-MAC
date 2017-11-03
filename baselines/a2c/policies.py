@@ -111,8 +111,8 @@ class CnnPolicy(object):
         self.initial_state = [] #not stateful
 
         def step(ob, *_args, **_kwargs):
-            a, val, qvals = sess.run([a0, v, q], {X:ob})
-            return a, val, qvals, [] #dummy state
+            a, qvals = sess.run([a0, q], {X:ob})
+            return a, qvals, [] #dummy state
 
         def value(ob, *_args, **_kwargs):
             return sess.run(v, {X:ob})
