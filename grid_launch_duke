@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+
+import argparse
+import datetime
+import os
+import sys
+import re
+
+timestr = datetime.datetime.now().strftime("%f")
+defaultjob = 'a2c_[TIMESTRING]'
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--host', help='A particular grid host to target', type=str, default=None)
+parser.add_argument('--jobname', help='A name for the qsub job (max 10 chars)', type=str, default=defaultjob)
+parser.add_argument('--jobtype', help='Which type of job to request', choices=['cpu', 'gpu'], default='gpu')
+parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
+parser.add_argument('--num_cpus', help='Number of CPUs', type=int, default=8)
+parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+required = parser.add_argument_group('required arguments')
+required.add_argument('--note', help='A short note to add to the log file', type=str)
+args = parser.parse_args()
+
+if args.note == None:
+	parser.print_help()
+	sys.exit()
+
+if args.jobname == defaultjob:
+	args.jobname = "a2c_{}".format(timestr)
+elif not re.match(r'^\w+$', args.jobname):
+	print("Invalid job name: {}".format(args.jobname))
+	sys.exit()
+
+gpu_request='-q compsci-gpu'
+cpu_request='-pe threaded 8 -q compsci'
+
+if args.jobtype == 'cpu':
+	job_details = cpu_request
+else:
+	job_details = gpu_request
+
+if args.host:
+	job_details += '@'+args.host
+
+script_body='''#$ -S /bin/bash
+#!/bin/bash
+
+cd ~
+source tf-py3-{}-env.sh
+cd ~/dev/mean-a2c
+./run_atari --note="{}" --num_cpus={} --nsteps={} --seed={}
+'''.format(args.jobtype, args.note, args.num_cpus, args.nsteps, args.seed)
+
+os.makedirs("scripts/", exist_ok=True)
+
+jobfile = "scripts/{}".format(args.jobname)
+
+with open(jobfile, 'w') as f:
+	f.write(script_body)
+
+cmd="qsub {} {}".format(job_details, jobfile)
+print(cmd)
+os.system(cmd)
