@@ -46,7 +46,7 @@ def main():
     parser.add_argument('--note', help='A short note to add to the log file', type=str, default="")
     parser.add_argument('--model_path', help='Path to pre-trained model', type=str, default="")
     parser.add_argument('--num_cpus', help='Number of CPUs (i.e. number of parallel enviornments)', type=int, default=16)
-    parser.add_argument('--nsteps', help'Number of steps for each rollout', type=int, default=5)
+    parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
     args = parser.parse_args()
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
