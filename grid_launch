@@ -12,6 +12,9 @@ defaultjob = 'a2c_[TIMESTRING]'
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--jobname', help='A name for the qsub job (max 10 chars)', type=str, default=defaultjob)
 parser.add_argument('--jobtype', help='Which type of job to request', choices=['cpu', 'gpu'], default='gpu')
+parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
+parser.add_argument('--num_cpus', help='Number of CPUs', type=int, default=8)
+parser.add_argument('--seed', help='RNG seed', type=int, default=0)
 required = parser.add_argument_group('required arguments')
 required.add_argument('--note', help='A short note to add to the log file', type=str)
 args = parser.parse_args()
@@ -39,8 +42,8 @@ script_body='''#!/bin/bash
 cd ~
 source tf-py3-{}-env.sh
 cd ~/dev/mean-a2c
-./run_atari --note="{}" --num_cpus=8
-'''.format(args.jobtype, args.note)
+./run_atari --note="{}" --num_cpus={} --nsteps={} --seed={}
+'''.format(args.jobtype, args.note, args.num_cpus, args.nsteps, args.seed)
 
 os.makedirs("scripts/", exist_ok=True)
 
