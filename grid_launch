@@ -10,6 +10,7 @@ timestr = datetime.datetime.now().strftime("%f")
 defaultjob = 'a2c_[TIMESTRING]'
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--host', help='A particular grid host to target', type=str, default=None)
 parser.add_argument('--jobname', help='A name for the qsub job (max 10 chars)', type=str, default=defaultjob)
 parser.add_argument('--jobtype', help='Which type of job to request', choices=['cpu', 'gpu'], default='gpu')
 parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
@@ -30,12 +31,15 @@ elif not re.match(r'^\w+$', args.jobname):
 	sys.exit()
 
 gpu_request='-q compsci-gpu'
-cpu_request='-q compsci -pe threaded 8'
+cpu_request='-pe threaded 8 -q compsci'
 
 if args.jobtype == 'cpu':
 	job_details = cpu_request
 else:
 	job_details = gpu_request
+
+if args.host:
+	job_details += '@'+args.host
 
 script_body='''#$ -S /bin/bash
 #!/bin/bash
