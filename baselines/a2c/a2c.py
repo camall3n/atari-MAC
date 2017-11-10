@@ -21,7 +21,7 @@ from baselines.a2c.utils import cat_entropy, mse
 class Model(object):
 
     def __init__(self, policy, ob_space, ac_space, nenvs, nsteps, nstack, num_procs,
-            ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5, lr=7e-4,
+            pg_coef=1.0, ent_coef=0.01, vf_coef=0.5, max_grad_norm=0.5, lr=7e-4,
             alpha=0.99, epsilon=1e-5, total_timesteps=int(80e6), lrschedule='linear', nModelsToKeep=5):
         config = tf.ConfigProto(allow_soft_placement=True,
                                 intra_op_parallelism_threads=num_procs,
@@ -46,7 +46,7 @@ class Model(object):
         pg_loss = tf.reduce_mean(ADV * neglogpac)
         vf_loss = tf.reduce_mean(mse(q_acted, R))
         entropy = tf.reduce_mean(cat_entropy(train_model.pi_logits))
-        loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
+        loss = pg_loss*pg_coef - entropy*ent_coef + vf_loss * vf_coef
 
         params = find_trainable_variables("model")
         grads = tf.gradients(loss, params)
@@ -239,7 +239,7 @@ class Runner(object):
         logger.dump_tabular()
 
 def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(80e6),
-    vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear',
+    pg_coef=1.0, vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear',
     epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100, eval_interval=12500, model_path=""):
     tf.reset_default_graph()
     set_global_seeds(seed)
@@ -248,7 +248,7 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
     ob_space = env.observation_space
     ac_space = env.action_space
     num_procs = len(env.remotes) # HACK
-    model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack, num_procs=num_procs, ent_coef=ent_coef, vf_coef=vf_coef,
+    model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, nstack=nstack, num_procs=num_procs, pg_coef=pg_coef, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
     if model_path:
         model.load(model_path)
