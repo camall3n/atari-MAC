@@ -280,8 +280,7 @@ def learn(policy, env, eval_env, seed, nsteps=5, nstack=4, total_timesteps=int(8
     logger.record_tabular("nupdates", update)
     logger.record_tabular("total_timesteps", update*nbatch)
     eval_runner.eval()
-    modelfile = os.path.join(logger.get_dir(), datetime.datetime.now().strftime("model-%Y-%m-%d-%H-%M-%S-%f"))
-    model.save(modelfile)
+    model.save()
 
 if __name__ == '__main__':
     main()
