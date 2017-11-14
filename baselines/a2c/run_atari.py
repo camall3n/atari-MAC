@@ -8,7 +8,7 @@ from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.atari_wrappers import wrap_deepmind
 from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 
-def train(env_id, num_frames, seed, nsteps, policy, lrschedule, num_cpu, model_path, pg_coef=1.0, ent_coef=0.01, vf_coef=0.5):
+def train(env_id, num_frames, seed, nsteps, policy, lrschedule, num_cpu, model_path, lr=7e-4, pg_coef=1.0, ent_coef=0.01, vf_coef=0.5):
     num_timesteps = int(num_frames / 4 * 1.1)
     # divide by 4 due to frameskip, then do a little extras so episodes end
     def make_env(rank, isTraining=True):
@@ -29,7 +29,7 @@ def train(env_id, num_frames, seed, nsteps, policy, lrschedule, num_cpu, model_p
         policy_fn = LstmPolicy
     elif policy == 'lnlstm':
         policy_fn = LnLstmPolicy
-    learn(policy_fn, env, eval_env, seed, nsteps=nsteps, total_timesteps=num_timesteps,
+    learn(policy_fn, env, eval_env, seed, nsteps=nsteps, total_timesteps=num_timesteps, lr=lr,
         pg_coef=pg_coef, ent_coef=ent_coef, vf_coef=vf_coef, lrschedule=lrschedule, model_path=model_path)
     eval_env.close()
     env.close()
@@ -48,6 +48,7 @@ def main():
     parser.add_argument('--model_path', help='Path to pre-trained model', type=str, default="")
     parser.add_argument('--num_cpus', help='Number of CPUs (i.e. number of parallel enviornments)', type=int, default=16)
     parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
+    parser.add_argument('--lr', help='Learning rate', type=float, default=7e-4)
     parser.add_argument('--pg_coef', help='Coefficient for policy gradient loss', type=float, default=1.0)
     parser.add_argument('--ent_coef', help='Coefficient for policy entropy loss', type=float, default=0.01)
     parser.add_argument('--vf_coef', help='Coefficient for value function loss', type=float, default=0.5)
@@ -63,7 +64,7 @@ def main():
     logger.log("")
     train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed, nsteps=args.nsteps,
         policy=args.policy, lrschedule=args.lrschedule, num_cpu=args.num_cpus, model_path=args.model_path,
-        pg_coef=args.pg_coef, ent_coef=args.ent_coef, vf_coef=args.vf_coef)
+        lr=args.lr, pg_coef=args.pg_coef, ent_coef=args.ent_coef, vf_coef=args.vf_coef)
 
 if __name__ == '__main__':
     main()

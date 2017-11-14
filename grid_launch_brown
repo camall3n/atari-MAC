@@ -15,6 +15,7 @@ parser.add_argument('--jobtype', help='Which type of job to request', choices=['
 parser.add_argument('--nsteps', help='Number of steps for each rollout', type=int, default=5)
 parser.add_argument('--num_cpus', help='Number of CPUs', type=int, default=8)
 parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+parser.add_argument('--lr', help='Learning rate', type=float, default=7e-4)
 parser.add_argument('--pg_coef', help='Coefficient for policy gradient loss', type=float, default=1.0)
 parser.add_argument('--ent_coef', help='Coefficient for policy entropy loss', type=float, default=0.01)
 parser.add_argument('--vf_coef', help='Coefficient for value function loss', type=float, default=0.5)
@@ -45,8 +46,8 @@ script_body='''#!/bin/bash
 cd ~
 source tf-py3-{}-env.sh
 cd ~/dev/mean-a2c
-./run_atari --note="{}" --num_cpus={} --nsteps={} --seed={} --pg_coef={} --ent_coef={} --vf_coef={}
-'''.format(args.jobtype, args.note, args.num_cpus, args.nsteps, args.seed, args.pg_coef, args.ent_coef, args.vf_coef)
+./run_atari --note="{}" --num_cpus={} --nsteps={} --seed={} --lr={} --pg_coef={} --ent_coef={} --vf_coef={}
+'''.format(args.jobtype, args.note, args.num_cpus, args.nsteps, args.seed, args.lr, args.pg_coef, args.ent_coef, args.vf_coef)
 
 os.makedirs("scripts/", exist_ok=True)
 
