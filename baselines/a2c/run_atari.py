@@ -9,8 +9,8 @@ from baselines.common.atari_wrappers import wrap_deepmind
 from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 
 def train(env_id, num_frames, seed, nsteps, policy, lrschedule, num_cpu, model_path, lr=7e-4, pg_coef=1.0, ent_coef=0.01, vf_coef=0.5):
-    num_timesteps = int(num_frames / 4 * 1.1)
-    # divide by 4 due to frameskip, then do a little extras so episodes end
+    num_timesteps = int(num_frames / 4)
+    # divide by 4 due to frameskip
     def make_env(rank, isTraining=True):
         def _thunk():
             env = gym.make(env_id)
@@ -59,7 +59,7 @@ def main():
     logger.reset()
     logger.configure(logdir)
     logger.log("")
-    for arg in vars(args):
+    for arg in sorted(vars(args)):
         logger.log("{}: {}".format(arg, getattr(args,arg)))
     logger.log("")
     train(args.env, num_frames=1e6 * args.million_frames, seed=args.seed, nsteps=args.nsteps,
