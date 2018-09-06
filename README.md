@@ -16,8 +16,8 @@ brew install cmake openmpi
 
 Then grab the code:
 ```bash
-git clone https://github.com/camall3n/atari-mean-actor-critic.git
-cd atari-mean-actor-critic
+git clone https://github.com/camall3n/atari-MAC.git
+cd atari-MAC
 ```
 
 Optionally, create a python3 virtualenv and activate it here:
