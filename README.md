@@ -1,22 +1,52 @@
-<img src="data/logo.jpg" width=25% align="right" />
+#### Forked from:
+[OpenAI/Baselines](https://github.com/openai/baselines): "a set of high-quality implementations of reinforcement learning algorithms"
 
-# Baselines
 
-OpenAI Baselines is a set of high-quality implementations of reinforcement learning algorithms.
+# Mean Actor-Critic
 
-These algorithms will make it easier for the research community to replicate, refine, and identify new ideas, and will create good baselines to build research on top of. Our DQN implementation and its variants are roughly on par with the scores in published papers. We expect they will be used as a base around which new ideas can be added, and as a tool for comparing a new approach against existing ones. 
 
-You can install it by typing:
+This repository has been customized to run Atari experiments comparing Mean Actor-Critic (MAC) with Advantage Actor-Critic (AAC). The details of these customizations can be found in our Arxiv paper: https://arxiv.org/abs/1709.00503.
 
+### Installation
+
+If you're on MacOS, you may need to install some dependencies first:
+```
+brew install cmake openmpi
+```
+
+Then grab the code:
 ```bash
-git clone https://github.com/openai/baselines.git
-cd baselines
+git clone https://github.com/camall3n/atari-mean-actor-critic.git
+cd atari-mean-actor-critic
+```
+
+Optionally, create a python3 virtualenv and activate it here:
+```
+virtualenv env --python=python3
+. env/bin/activate
+```
+
+And finally install OpenAI's baselines package:
+```
 pip install -e .
 ```
 
-- [A2C](baselines/a2c)
-- [ACKTR](baselines/acktr)
-- [DDPG](baselines/ddpg)
-- [DQN](baselines/deepq)
-- [PPO](baselines/ppo1)
-- [TRPO](baselines/trpo_mpi)
+### Running
+
+First choose the appropriate git branch, either `mac` or `benchmark-aac`:
+```bash
+git checkout mac
+# git checkout benchmark-aac
+```
+
+To run an experiment using the hyperparameters from the paper use:
+```
+./run_atari
+```
+
+This will call `python -m baselines/a2c/run_atari.py` and forward the arguments to the python script. For information on how to specify the arguments, use:
+```
+./run_atari --help
+```
+
+The script will train for the specified number of frames, and it will periodically log training progress, evaluate the network, and save model weights.
