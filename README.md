@@ -50,3 +50,5 @@ This will call `python -m baselines/a2c/run_atari.py` and forward the arguments 
 ```
 
 The script will train for the specified number of frames, and it will periodically log training progress, evaluate the network, and save model weights.
+
+A new directory is created for each experiment, and you can use the `--note` argument to tag the log files with the details of each training run.
